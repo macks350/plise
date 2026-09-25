@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>SHUTER Online — Fixed Admin Edition</title>
+<style>
+*{box-sizing:border-box;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+body{margin:0;overflow:hidden;background:#050c17;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}
+canvas{display:block;width:100vw;height:100vh}
+
+.screen{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:radial-gradient(circle at top,#122b47,#050c17 80%)}
+.card{width:min(440px,92vw);max-height:88vh;overflow-y:auto;background:#0c1f36;border:1px solid #3da9e8;border-radius:18px;padding:22px;text-align:center;box-shadow:0 0 35px rgba(24,142,224,0.4)}
+.logo{font-size:38px;font-weight:900;letter-spacing:6px;color:#5fd2ff;text-shadow:0 0 16px rgba(95,210,255,0.7);margin-bottom:6px}
+.sub{color:#92b8dc;font-size:13px;margin-bottom:16px}
+
+input,select,button{width:100%;padding:12px;margin:6px 0;border:0;border-radius:10px;font-size:15px;font-weight:600;outline:none}
+input,select{background:#071626;color:#fff;border:1px solid #1c456e}
+button{background:#1892de;color:#fff;cursor:pointer;transition:background .15s}
+button:active{background:#41abf2}
+button.alt{background:#18324a;border:1px solid #2b5680}
+button.admin-gold{background:#d97706;border:1px solid #fbbf24;box-shadow:0 0 15px rgba(245,158,11,0.4)}
+button.danger{background:#dc2626}
+button.success{background:#16a34a}
+.hide{display:none!important}
+.err{font-size:13px;color:#f87171;min-height:18px;margin-top:4px}
+
+/* ИН-ГЕЙМ АДМИН МЕНЮ */
+#ingameAdminModal{
+  position:fixed;
+  inset:0;
+  z-index:100;
+  display:grid;
+  place-items:center;
+  background:rgba(5,12,23,0.85);
+  backdrop-filter:blur(6px);
+}
+
+/* УВЕДОМЛЕНИЯ БЕЗ ALERT */
+#toastBox{
+  position:fixed;
+  top:70px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#102b48ee;
+  border:1px solid #50b6ff;
+  color:#fff;
+  padding:10px 22px;
+  border-radius:25px;
+  font-size:14px;
+  font-weight:bold;
+  z-index:200;
+  box-shadow:0 0 20px rgba(80,182,255,0.5);
+  transition:opacity 0.25s, transform 0.25s;
+  pointer-events:none;
+}
+#toastBox.hide{
+  opacity:0;
+  transform:translateX(-50%) translateY(-15px);
+  display:block!important;
+}
+
+/* HUD */
+#hud{position:fixed;inset:0;z-index:5;pointer-events:none}
+.hud-pill{position:absolute;background:#071424cc;border:1px solid #1c3d61;border-radius:10px;padding:8px 12px;line-height:1.45;backdrop-filter:blur(4px);font-size:13px}
+.tl{top:12px;left:12px}
+.tr{top:12px;right:12px;text-align:right}
+.wpn-label{position:absolute;bottom:20px;right:130px;font-size:16px;font-weight:900;color:#60d1ff;text-shadow:0 0 8px #000}
+.admin-hud-btn{position:absolute;top:12px;left:50%;transform:translateX(-50%);pointer-events:auto;width:auto;padding:9px 18px;font-size:13px;font-weight:bold;border-radius:20px;margin:0;cursor:pointer;z-index:15}
+
+/* ПРИЦЕЛ И АВТО-НАВОДКА (КРУГ ФОКУСА) */
+#aimCircle{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:140px;height:140px;
+  border-radius:50%;
+  border:2px dashed rgba(96,209,255,0.45);
+  box-shadow:0 0 15px rgba(96,209,255,0.2), inset 0 0 15px rgba(96,209,255,0.1);
+  pointer-events:none;
+  transition:border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+#aimCircle.locked{
+  border:2.5px solid #ef4444;
+  box-shadow:0 0 25px rgba(239,68,68,0.7), inset 0 0 20px rgba(239,68,68,0.3);
+  transform:translate(-50%,-50%) scale(1.08);
+}
+
+.crosshair{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:20px;height:20px;
+  pointer-events:none;
+}
+.crosshair::before, .crosshair::after{
+  content:'';position:absolute;background:#fff;box-shadow:0 0 4px #000;
+}
+.crosshair::before{top:9px;left:0;width:20px;height:2px}
+.crosshair::after{top:0;left:9px;width:2px;height:20px}
+#aimCircle.locked + .crosshair::before, #aimCircle.locked + .crosshair::after{
+  background:#ef4444;box-shadow:0 0 6px #ef4444;
+}
+
+/* ESP ОВЕРЛЕЙ */
+#espCanvas{
+  position:fixed;inset:0;z-index:4;pointer-events:none;width:100vw;height:100vh;
+}
+
+/* TOUCH CONTROLS */
+#touchArea{position:fixed;inset:0;z-index:10;pointer-events:none}
+#joystick{position:absolute;bottom:24px;left:24px;width:140px;height:140px;border-radius:50%;background:#091e3388;border:2px solid #58bcf588;pointer-events:auto;touch-action:none}
+#knob{position:absolute;top:45px;left:45px;width:50px;height:50px;border-radius:50%;background:#4cb9f5cc;border:2px solid #c8ebff}
+#fireBtn{position:absolute;right:24px;bottom:24px;width:92px;height:92px;border-radius:50%;background:#dc2626dd;border:3px solid #fca5a5;color:#fff;font-size:16px;font-weight:900;pointer-events:auto;margin:0;touch-action:none;box-shadow:0 0 20px rgba(220,38,38,0.5)}
+#reloadBtn{position:absolute;right:38px;bottom:130px;width:54px;height:54px;border-radius:50%;background:#1e40afdd;border:2px solid #93c5fd;color:#fff;font-size:14px;font-weight:bold;pointer-events:auto;margin:0;touch-action:none}
+#lookArea{position:absolute;top:0;right:0;width:60vw;height:70vh;pointer-events:auto;touch-action:none}
+
+.item-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:220px;overflow-y:auto;margin:10px 0}
+.item-card{background:#081729;border:1px solid #1e4670;padding:10px;border-radius:8px;font-size:12px;font-weight:bold;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- ESP Canvas -->
+<canvas id="espCanvas"></canvas>
+
+<!-- ВСПЛЫВАЮЩИЕ УВЕДОМЛЕНИЯ ВМЕСТО ALERT -->
+<div id="toastBox" class="hide">Уведомление</div>
+
+<!-- AUTH -->
+<div id="authScreen" class="screen">
+  <div class="card">
+    <div class="logo">SHUTER</div>
+    <div class="sub">Онлайн 3D шутер с кейсами</div>
+    <input id="inNick" placeholder="Никнейм" autocomplete="off" autocapitalize="off">
+    <input id="inPass" type="password" placeholder="Пароль">
+    <button id="btnLogin">ВОЙТИ</button>
+    <button id="btnReg" class="alt">РЕГИСТРАЦИЯ</button>
+    <div id="authErr" class="err"></div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobbyScreen" class="screen hide">
+  <div class="card">
+    <div class="logo">SHUTER</div>
+    <div style="font-size:14px;color:#9ec2e6;margin-bottom:12px">
+      Игрок: <b id="uiNick" style="color:#60d1ff"></b> <span id="badgeOwner" style="display:none;color:#fbbf24;font-weight:bold">👑 [ВЛАДЕЛЕЦ]</span><br>
+      Баланс: <b id="uiCoins" style="color:#fcd34d">100</b> 🪙
+    </div>
+    <select id="selServer">
+      <option value="1">RU Arena #1 — [ Онлайн: 6/10 ]</option>
+      <option value="2">RU Arena #2 — [ Онлайн: 3/10 ]</option>
+      <option value="3">Training Server — [ Одиночный ]</option>
+    </select>
+    <button id="btnPlay" class="success">ВОЙТИ НА СЕРВЕР</button>
+    <button id="btnCases">КЕЙСЫ (50 🪙)</button>
+    <button id="btnInventory" class="alt">ИНВЕНТАРЬ</button>
+    <button id="btnAdminLobby" class="admin-gold hide">⚡ АДМИН ПАНЕЛЬ</button>
+    <button id="btnLogout" class="danger">ВЫЙТИ ИЗ АККАУНТА</button>
+  </div>
+</div>
+
+<!-- POPUP MODAL (LOBBY CASES / INVENTORY) -->
+<div id="modalScreen" class="screen hide">
+  <div class="card">
+    <div id="mTitle" class="logo" style="font-size:24px"></div>
+    <div id="mBody"></div>
+    <button id="mClose" class="alt" style="margin-top:12px">НАЗАД</button>
+  </div>
+</div>
+
+<!-- IN-GAME ADMIN MODAL -->
+<div id="ingameAdminModal" class="hide">
+  <div class="card">
+    <div class="logo" style="font-size:24px;color:#fbbf24">⚡ АДМИН ПАНЕЛЬ</div>
+    <div style="font-size:13px;color:#9ec2e6;margin-bottom:10px">Переключение чит-функций в реальном времени</div>
+    <div id="adminPanelButtons"></div>
+    <button id="btnCloseAdminIngame" class="alt" style="margin-top:12px">ЗАКРЫТЬ МЕНЮ</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hide">
+  <div class="hud-pill tl">
+    ❤️ HP: <b id="hudHp" style="color:#ef4444">100</b><br>
+    🔫 Патроны: <b id="hudAmmo">30 / 30</b>
+  </div>
+  <div class="hud-pill tr">
+    ☠ Убийств: <b id="hudKills">0</b><br>
+    🪙 Монеты: <b id="hudCoins">0</b>
+  </div>
+
+  <button id="btnAdminHud" class="admin-gold admin-hud-btn hide">⚡ АДМИНКА</button>
+
+  <!-- АВТО-НАВОДКА КРУГ И ПРИЦЕЛ -->
+  <div id="aimCircle"></div>
+  <div class="crosshair"></div>
+
+  <div class="wpn-label" id="hudWeapon">RIFLE</div>
+</div>
+
+<!-- TOUCH -->
+<div id="touchArea" class="hide">
+  <div id="joystick"><div id="knob"></div></div>
+  <div id="lookArea"></div>
+  <button id="fireBtn">ОГОНЬ</button>
+  <button id="reloadBtn">R</button>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js';
+
+const SKINS = [
+  { name: 'Default Blue', color: 0x1f75ba },
+  { name: 'Crimson Dragon', color: 0xef4444 },
+  { name: 'Neon Toxic', color: 0x22c55e },
+  { name: 'Gold Emperor', color: 0xf59e0b },
+  { name: 'Void Purple', color: 0xa855f7 },
+  { name: 'Owner Red Neon', color: 0xff0044 }
+];
+
+let user = JSON.parse(localStorage.getItem('sh_usr') || 'null');
+let save = JSON.parse(localStorage.getItem('sh_save') || '{"coins":150,"items":["Default Blue"],"skin":"Default Blue"}');
+
+function writeSave(){ localStorage.setItem('sh_save', JSON.stringify(save)); }
+function isOwner(n){ return n && n.trim().toLowerCase() === 'владелец'; }
+
+const $ = id => document.getElementById(id);
+const hide = el => el.classList.add('hide');
+const show = el => el.classList.remove('hide');
+
+// БЕЗОПАСНЫЙ TOAST ВМЕСТО СИСТЕМНОГО ALERT
+let toastTimer = null;
+function showToast(text) {
+  const box = $('toastBox');
+  box.textContent = text;
+  box.classList.remove('hide');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    box.classList.add('hide');
+  }, 2200);
+}
+
+function updateLobby(){
+  if(!user) return;
+  $('uiNick').textContent = user.name;
+  $('uiCoins').textContent = save.coins;
+  const owner = isOwner(user.name);
+  $('badgeOwner').style.display = owner ? 'inline' : 'none';
+  if(owner){ show($('btnAdminLobby')); show($('btnAdminHud')); }
+  else { hide($('btnAdminLobby')); hide($('btnAdminHud')); }
+}
+
+// AUTH
+$('btnLogin').onclick = () => {
+  const n = $('inNick').value.trim();
+  const p = $('inPass').value;
+  if(!n || !p) return $('authErr').textContent = 'Введите ник и пароль';
+  if(isOwner(n)){
+    if(p === '1a2b3g'){
+      user = { name: 'Владелец' };
+      localStorage.setItem('sh_usr', JSON.stringify(user));
+      hide($('authScreen')); show($('lobbyScreen')); updateLobby();
+    } else {
+      $('authErr').textContent = 'Неверный пароль владельца!';
+    }
+    return;
+  }
+  const acc = JSON.parse(localStorage.getItem('acc_' + n.toLowerCase()) || 'null');
+  if(acc && acc.pass === p){
+    user = { name: n };
+    localStorage.setItem('sh_usr', JSON.stringify(user));
+    hide($('authScreen')); show($('lobbyScreen')); updateLobby();
+  } else {
+    $('authErr').textContent = 'Неверный ник или пароль';
+  }
+};
+
+$('btnReg').onclick = () => {
+  const n = $('inNick').value.trim();
+  const p = $('inPass').value;
+  if(n.length < 3 || p.length < 4) return $('authErr').textContent = 'Ник от 3, пароль от 4 символов';
+  if(isOwner(n)) return $('authErr').textContent = 'Этот ник зарезервирован владельцем';
+  if(localStorage.getItem('acc_' + n.toLowerCase())) return $('authErr').textContent = 'Ник уже занят';
+
+  localStorage.setItem('acc_' + n.toLowerCase(), JSON.stringify({ pass: p }));
+  user = { name: n };
+  localStorage.setItem('sh_usr', JSON.stringify(user));
+  hide($('authScreen')); show($('lobbyScreen')); updateLobby();
+};
+
+$('btnLogout').onclick = () => { localStorage.removeItem('sh_usr'); location.reload(); };
+
+if(user){ hide($('authScreen')); show($('lobbyScreen')); updateLobby(); }
+
+// CASES & INVENTORY
+$('btnCases').onclick = () => {
+  $('mTitle').textContent = 'ОРУЖЕЙНЫЙ КЕЙС';
+  $('mBody').innerHTML = `
+    <p style="color:#9ec2e6">Цена открытия: <b>50 🪙</b></p>
+    <div id="dropRes" style="font-size:18px;font-weight:900;color:#fcd34d;min-height:30px;margin:12px 0"></div>
+    <button id="btnOpenCase">ОТКРЫТЬ КЕЙС</button>
+  `;
+  show($('modalScreen'));
+
+  $('btnOpenCase').onclick = () => {
+    if(save.coins < 50){ $('dropRes').textContent = 'Не хватает монет!'; return; }
+    save.coins -= 50;
+    const item = SKINS[Math.floor(Math.random() * (SKINS.length - 1))];
+    if(!save.items.includes(item.name)) save.items.push(item.name);
+    save.skin = item.name;
+    writeSave();
+    $('uiCoins').textContent = save.coins;
+    $('dropRes').textContent = 'ВЫПАЛО: ' + item.name;
+    updateGunColor();
+  };
+};
+
+$('btnInventory').onclick = () => {
+  $('mTitle').textContent = 'ИНВЕНТАРЬ';
+  const html = save.items.map(n => `<div class="item-card" data-sk="${n}">${n} ${save.skin === n ? '✅' : ''}</div>`).join('');
+  $('mBody').innerHTML = `<p style="color:#9ec2e6">Выбери скин:</p><div class="item-grid">${html}</div>`;
+  show($('modalScreen'));
+
+  document.querySelectorAll('.item-card').forEach(c => {
+    c.onclick = () => {
+      save.skin = c.dataset.sk;
+      writeSave();
+      updateGunColor();
+      $('btnInventory').click();
+    };
+  });
+};
+
+// ================== АДМИН-ПАНЕЛЬ И ЧИТ-ТОГГЛЫ ==================
+let godMode = false;
+let superSpeed = false;
+let espEnabled = true;
+let autoAimEnabled = true;
+let autoFireEnabled = true;
+
+function renderAdminButtons(containerId) {
+  const container = $(containerId);
+  container.innerHTML = `
+    <button id="aCoins" class="admin-gold">+1000 МОНЕТ 🪙</button>
+    <button id="aGod" class="admin-gold">РЕЖИМ БОГА: <b style="color:${godMode ? '#4ade80' : '#f87171'}">${godMode ? 'ВКЛ' : 'ВЫКЛ'}</b></button>
+    <button id="aEsp" class="alt">ESP (ПОДСВЕТКА): <b style="color:${espEnabled ? '#4ade80' : '#f87171'}">${espEnabled ? 'ВКЛ' : 'ВЫКЛ'}</b></button>
+    <button id="aAutoAim" class="alt">АВТО-НАВОДКА (AIMBOT): <b style="color:${autoAimEnabled ? '#4ade80' : '#f87171'}">${autoAimEnabled ? 'ВКЛ' : 'ВЫКЛ'}</b></button>
+    <button id="aAutoFire" class="alt">АВТО-СТРЕЛЬБА: <b style="color:${autoFireEnabled ? '#4ade80' : '#f87171'}">${autoFireEnabled ? 'ВКЛ' : 'ВЫКЛ'}</b></button>
+    <button id="aKill" class="danger">УНИЧТОЖИТЬ ВСЕХ БОТОВ 💥</button>
+    <button id="aSpeed" class="alt">СУПЕР СКОРОСТЬ: <b style="color:${superSpeed ? '#4ade80' : '#f87171'}">${superSpeed ? 'ВКЛ' : 'ВЫКЛ'}</b></button>
+    <button id="aSkins" class="success">РАЗБЛОКИРОВАТЬ ВСЕ СКИНЫ</button>
+  `;
+
+  $('aCoins').onclick = () => {
+    save.coins += 1000; writeSave();
+    $('uiCoins').textContent = save.coins;
+    $('hudCoins').textContent = save.coins;
+    showToast('+1000 монет начислено!');
+  };
+  $('aGod').onclick = () => { godMode = !godMode; renderAdminButtons(containerId); showToast(`Режим бога: ${godMode ? 'ВКЛ' : 'ВЫКЛ'}`); };
+  $('aEsp').onclick = () => { espEnabled = !espEnabled; renderAdminButtons(containerId); showToast(`ESP: ${espEnabled ? 'ВКЛ' : 'ВЫКЛ'}`); };
+  $('aAutoAim').onclick = () => {
+    autoAimEnabled = !autoAimEnabled;
+    renderAdminButtons(containerId);
+    showToast(`Авто-наводка: ${autoAimEnabled ? 'ВКЛ' : 'ВЫКЛ'}`);
+    $('aimCircle').style.display = autoAimEnabled ? 'block' : 'none';
+  };
+  $('aAutoFire').onclick = () => { autoFireEnabled = !autoFireEnabled; renderAdminButtons(containerId); showToast(`Авто-стрельба: ${autoFireEnabled ? 'ВКЛ' : 'ВЫКЛ'}`); };
+  $('aKill').onclick = () => {
+    for(let b of bots) scene.remove(b);
+    kills += bots.length;
+    save.coins += bots.length * 10;
+    writeSave();
+    bots = [];
+    $('hudKills').textContent = kills;
+    $('hudCoins').textContent = save.coins;
+    for(let i=0; i<6; i++) spawnBot();
+    showToast('Все боты на арене уничтожены!');
+  };
+  $('aSpeed').onclick = () => { superSpeed = !superSpeed; renderAdminButtons(containerId); showToast(`Супер скорость: ${superSpeed ? 'ВКЛ' : 'ВЫКЛ'}`); };
+  $('aSkins').onclick = () => {
+    save.items = SKINS.map(s => s.name); writeSave();
+    showToast('Все скины разблокированы!');
+  };
+}
+
+// Админка из Лобби
+$('btnAdminLobby').onclick = () => {
+  $('mTitle').textContent = '⚡ АДМИН ПАНЕЛЬ';
+  $('mBody').innerHTML = `<div id="lobbyAdminContainer"></div>`;
+  renderAdminButtons('lobbyAdminContainer');
+  show($('modalScreen'));
+};
+
+// Админка прямо во время боя (Ин-гейм)
+$('btnAdminHud').onclick = () => {
+  renderAdminButtons('adminPanelButtons');
+  show($('ingameAdminModal'));
+};
+$('btnCloseAdminIngame').onclick = () => hide($('ingameAdminModal'));
+
+$('mClose').onclick = () => hide($('modalScreen'));
+
+// 3D SCENE SETUP
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0e1c2b);
+scene.fog = new THREE.Fog(0x0e1c2b, 25, 95);
+
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 150);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const raycaster = new THREE.Raycaster();
+const clock = new THREE.Clock();
+
+scene.add(new THREE.HemisphereLight(0xcdeaff, 0x1f3324, 1.8));
+const dir = new THREE.DirectionalLight(0xffffff, 2.2);
+dir.position.set(20, 35, 15);
+dir.castShadow = true;
+scene.add(dir);
+
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(140, 140),
+  new THREE.MeshStandardMaterial({ color: 0x1c3040, roughness: 0.8 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+const crateMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 });
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x203c54, roughness: 0.9 });
+
+function addBox(x, y, z, w, h, d, mat){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  scene.add(m);
+}
+
+// Стены
+addBox(0, 3.5, -55, 110, 7, 2, wallMat);
+addBox(0, 3.5, 55, 110, 7, 2, wallMat);
+addBox(-55, 3.5, 0, 2, 7, 110, wallMat);
+addBox(55, 3.5, 0, 2, 7, 110, wallMat);
+
+// Укрытия
+[
+  [-12, 2, -10, 6, 4, 6],
+  [15, 2, -15, 7, 4, 5],
+  [-18, 2.5, 12, 5, 5, 8],
+  [12, 2, 14, 8, 4, 5],
+  [0, 2, 0, 6, 4, 6],
+  [-25, 2, -25, 6, 4, 6],
+  [25, 2, 25, 6, 4, 6]
+].forEach(c => addBox(c[0], c[1], c[2], c[3], c[4], c[5], crateMat));
+
+// WEAPON
+const weaponGroup = new THREE.Group();
+
+const hand = new THREE.Mesh(
+  new THREE.BoxGeometry(0.18, 0.18, 0.7),
+  new THREE.MeshStandardMaterial({ color: 0xdca682 })
+);
+hand.position.set(0.28, -0.38, -0.45);
+hand.rotation.x = -0.6;
+weaponGroup.add(hand);
+
+const gunBody = new THREE.Mesh(
+  new THREE.BoxGeometry(0.24, 0.2, 0.95),
+  new THREE.MeshStandardMaterial({ color: 0x1f75ba, metalness: 0.5, roughness: 0.4 })
+);
+gunBody.position.set(0.38, -0.32, -0.75);
+weaponGroup.add(gunBody);
+
+const gunBarrel = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8),
+  new THREE.MeshStandardMaterial({ color: 0x111827 })
+);
+gunBarrel.rotation.x = Math.PI / 2;
+gunBarrel.position.set(0.38, -0.3, -1.2);
+weaponGroup.add(gunBarrel);
+
+const gunMag = new THREE.Mesh(
+  new THREE.BoxGeometry(0.12, 0.35, 0.2),
+  new THREE.MeshStandardMaterial({ color: 0x0f172a })
+);
+gunMag.position.set(0.38, -0.5, -0.7);
+weaponGroup.add(gunMag);
+
+camera.add(weaponGroup);
+scene.add(camera);
+
+function updateGunColor(){
+  const s = SKINS.find(x => x.name === save.skin) || SKINS[0];
+  gunBody.material.color.setHex(s.color);
+  $('hudWeapon').textContent = s.name.toUpperCase();
+}
+updateGunColor();
+
+// BOTS
+let bots = [];
+function spawnBot(){
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(
+    new THREE.BoxGeometry(0.85, 1.25, 0.5),
+    new THREE.MeshStandardMaterial({ color: Math.random() > 0.5 ? 0xd9383a : 0xeb7a23 })
+  );
+  b.position.y = 1.25;
+  b.castShadow = true;
+  g.add(b);
+
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.32, 12, 10),
+    new THREE.MeshStandardMaterial({ color: 0xf5be93 })
+  );
+  head.position.y = 2.05;
+  head.castShadow = true;
+  g.add(head);
+
+  const ang = Math.random() * Math.PI * 2;
+  const dist = 18 + Math.random() * 25;
+  g.position.set(Math.cos(ang) * dist, 0, Math.sin(ang) * dist);
+
+  g.userData = { hp: 100, maxHp: 100, speed: 2.2 + Math.random() * 0.8, cd: Math.random() * 1.5 };
+  g.traverse(x => { if(x.isMesh) x.userData.rootBot = g; });
+
+  scene.add(g);
+  bots.push(g);
+}
+for(let i=0; i<6; i++) spawnBot();
+
+// GAMEPLAY
+let running = false;
+let hp = 100;
+let ammo = 30;
+let kills = 0;
+let lastShot = 0;
+
+function shoot(){
+  if(!running || ammo <= 0 || performance.now() - lastShot < 130) return;
+  lastShot = performance.now();
+  ammo--;
+  $('hudAmmo').textContent = `${ammo} / 30`;
+
+  weaponGroup.position.z = 0.08;
+  setTimeout(() => weaponGroup.position.z = 0, 50);
+
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hits = raycaster.intersectObjects(bots, true);
+
+  if(hits.length > 0){
+    const r = hits[0].object.userData.rootBot;
+    if(r){
+      r.userData.hp -= 45;
+      if(r.userData.hp <= 0){
+        scene.remove(r);
+        bots = bots.filter(b => b !== r);
+        kills++;
+        save.coins += 10;
+        writeSave();
+        $('hudKills').textContent = kills;
+        $('hudCoins').textContent = save.coins;
+        $('uiCoins').textContent = save.coins;
+        setTimeout(spawnBot, 1000);
+      }
+    }
+  }
+}
+
+function reload(){
+  if(ammo === 30) return;
+  $('hudAmmo').textContent = 'ПЕРЕЗАРЯДКА...';
+  setTimeout(() => { ammo = 30; $('hudAmmo').textContent = '30 / 30'; }, 900);
+}
+
+$('btnPlay').onclick = () => {
+  hide($('lobbyScreen'));
+  show($('hud'));
+  show($('touchArea'));
+  running = true;
+  hp = 100;
+  ammo = 30;
+  kills = 0;
+  $('hudHp').textContent = hp;
+  $('hudAmmo').textContent = '30 / 30';
+  $('hudKills').textContent = kills;
+  $('hudCoins').textContent = save.coins;
+
+  camera.position.set(0, 1.7, 20);
+  camera.rotation.set(0, 0, 0);
+
+  if(window.matchMedia('(pointer:fine)').matches){
+    renderer.domElement.requestPointerLock?.();
+  }
+};
+
+// CONTROLS & SMOOTH JOYSTICK
+let joyVector = { x: 0, y: 0 };
+let lookId = null;
+let lastX = 0, lastY = 0;
+const keys = {};
+
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if(e.code === 'KeyR') reload();
+});
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+document.addEventListener('mousemove', e => {
+  if(document.pointerLockElement === renderer.domElement && running && $('ingameAdminModal').classList.contains('hide')){
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y -= e.movementX * 0.0022;
+    camera.rotation.x = Math.max(-1.1, Math.min(1.1, camera.rotation.x - e.movementY * 0.0022));
+  }
+});
+document.addEventListener('mousedown', () => {
+  if(document.pointerLockElement === renderer.domElement && $('ingameAdminModal').classList.contains('hide')) shoot();
+});
+
+// Joystick
+const joy = $('joystick');
+const knob = $('knob');
+
+joy.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  joy.setPointerCapture(e.pointerId);
+});
+
+joy.addEventListener('pointermove', e => {
+  if(!joy.hasPointerCapture(e.pointerId)) return;
+  const rect = joy.getBoundingClientRect();
+  let dx = e.clientX - (rect.left + rect.width / 2);
+  let dy = e.clientY - (rect.top + rect.height / 2);
+  const dist = Math.hypot(dx, dy);
+  const maxR = 45;
+  if(dist > maxR){ dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+  joyVector = { x: dx / maxR, y: dy / maxR };
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+});
+
+function resetJoy(){
+  joyVector = { x: 0, y: 0 };
+  knob.style.transform = 'translate(0px, 0px)';
+}
+joy.addEventListener('pointerup', resetJoy);
+joy.addEventListener('pointercancel', resetJoy);
+
+// Fire Button
+let fireTimer = null;
+const fireBtn = $('fireBtn');
+
+fireBtn.addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  shoot();
+  fireTimer = setInterval(shoot, 130);
+});
+
+function stopFire(){ clearInterval(fireTimer); fireTimer = null; }
+fireBtn.addEventListener('pointerup', stopFire);
+fireBtn.addEventListener('pointercancel', stopFire);
+fireBtn.addEventListener('pointerleave', stopFire);
+
+$('reloadBtn').addEventListener('pointerdown', e => {
+  e.preventDefault(); e.stopPropagation();
+  reload();
+});
+
+// Look Area
+const lookArea = $('lookArea');
+lookArea.addEventListener('touchstart', e => {
+  if(!running || !$('ingameAdminModal').classList.contains('hide')) return;
+  const t = e.changedTouches[0];
+  lookId = t.identifier;
+  lastX = t.clientX;
+  lastY = t.clientY;
+}, { passive: false });
+
+lookArea.addEventListener('touchmove', e => {
+  if(!running || !$('ingameAdminModal').classList.contains('hide')) return;
+  for(let t of e.touches){
+    if(t.identifier === lookId){
+      const dx = t.clientX - lastX;
+      const dy = t.clientY - lastY;
+      lastX = t.clientX;
+      lastY = t.clientY;
+      camera.rotation.order = 'YXZ';
+      camera.rotation.y -= dx * 0.006;
+      camera.rotation.x = Math.max(-1.05, Math.min(1.05, camera.rotation.x - dy * 0.006));
+      break;
+    }
+  }
+  e.preventDefault();
+}, { passive: false });
+
+function endLook(e){
+  for(let t of e.changedTouches){
+    if(t.identifier === lookId){ lookId = null; break; }
+  }
+}
+lookArea.addEventListener('touchend', endLook);
+lookArea.addEventListener('touchcancel', endLook);
+
+// ESP 2D CANVAS
+const espCanvas = $('espCanvas');
+const espCtx = espCanvas.getContext('2d');
+
+function resizeEspCanvas(){
+  espCanvas.width = window.innerWidth;
+  espCanvas.height = window.innerHeight;
+}
+resizeEspCanvas();
+window.addEventListener('resize', resizeEspCanvas);
+
+// MAIN LOOP
+function loop(){
+  requestAnimationFrame(loop);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  espCtx.clearRect(0, 0, espCanvas.width, espCanvas.height);
+  let targetLocked = false;
+
+  if(running){
+    const isAdminOpen = !$('ingameAdminModal').classList.contains('hide');
+
+    if(!isAdminOpen){
+      const fwd = new THREE.Vector3();
+      camera.getWorldDirection(fwd);
+      fwd.y = 0;
+      fwd.normalize();
+
+      const right = new THREE.Vector3().crossVectors(fwd, camera.up).normalize();
+      const spd = (superSpeed ? 17 : 9) * dt;
+
+      const moveZ = ((keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0)) - joyVector.y;
+      const moveX = ((keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0)) + joyVector.x;
+
+      camera.position.addScaledVector(fwd, moveZ * spd);
+      camera.position.addScaledVector(right, moveX * spd);
+
+      camera.position.y = 1.7;
+      camera.position.x = Math.max(-50, Math.min(50, camera.position.x));
+      camera.position.z = Math.max(-50, Math.min(50, camera.position.z));
+    }
+
+    // AIMBOT, AUTO-FIRE & ESP
+    let closestBot = null;
+    let minScreenDist = 999999;
+    const circleRadius = 70;
+
+    const screenCenterX = window.innerWidth / 2;
+    const screenCenterY = window.innerHeight / 2;
+
+    for(let b of bots){
+      const botPos = new THREE.Vector3();
+      b.getWorldPosition(botPos);
+      botPos.y += 1.4;
+
+      const screenPos = botPos.clone().project(camera);
+
+      if(screenPos.z < 1){
+        const sx = (screenPos.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-(screenPos.y * 0.5) + 0.5) * window.innerHeight;
+
+        const distToCenter = Math.hypot(sx - screenCenterX, sy - screenCenterY);
+        const distToPlayer = camera.position.distanceTo(b.position);
+
+        if(espEnabled){
+          const boxSize = Math.max(20, Math.min(120, 900 / distToPlayer));
+
+          espCtx.strokeStyle = '#ef4444';
+          espCtx.lineWidth = 1.5;
+          espCtx.strokeRect(sx - boxSize / 2, sy - boxSize, boxSize, boxSize * 1.8);
+
+          espCtx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+          espCtx.lineWidth = 1;
+          espCtx.beginPath();
+          espCtx.moveTo(screenCenterX, window.innerHeight);
+          espCtx.lineTo(sx, sy);
+          espCtx.stroke();
+
+          espCtx.fillStyle = '#fcd34d';
+          espCtx.font = '11px sans-serif';
+          espCtx.fillText(`${Math.round(distToPlayer)}m | HP:${b.userData.hp}`, sx - boxSize / 2, sy - boxSize - 5);
+        }
+
+        if(distToCenter < circleRadius * 2 && distToCenter < minScreenDist){
+          minScreenDist = distToCenter;
+          closestBot = { bot: b, pos: botPos, sx, sy, distToCenter };
+        }
+      }
+    }
+
+    if(closestBot && autoAimEnabled && !isAdminOpen){
+      targetLocked = true;
+      const targetDir = new THREE.Vector3().subVectors(closestBot.pos, camera.position).normalize();
+      const targetYaw = Math.atan2(-targetDir.x, -targetDir.z);
+      const targetPitch = Math.asin(targetDir.y);
+
+      camera.rotation.order = 'YXZ';
+      camera.rotation.y += (targetYaw - camera.rotation.y) * 0.15;
+      camera.rotation.x += (targetPitch - camera.rotation.x) * 0.15;
+
+      if(autoFireEnabled && closestBot.distToCenter < circleRadius){
+        shoot();
+      }
+    }
+
+    if(targetLocked){
+      $('aimCircle').classList.add('locked');
+    } else {
+      $('aimCircle').classList.remove('locked');
+    }
+
+    // БОТЫ
+    for(let b of bots){
+      if(!isAdminOpen){
+        const dir = new THREE.Vector3().subVectors(camera.position, b.position);
+        dir.y = 0;
+        const dist = dir.length();
+        if(dist > 4.5) b.position.addScaledVector(dir.normalize(), b.userData.speed * dt);
+        b.lookAt(camera.position.x, 0, camera.position.z);
+
+        b.userData.cd -= dt;
+        if(dist < 14 && b.userData.cd <= 0){
+          b.userData.cd = 1.2 + Math.random();
+          if(!godMode){
+            hp -= 6;
+            $('hudHp').textContent = Math.max(0, hp);
+            if(hp <= 0){
+              showToast('Вас убили! Возрождение...');
+              hp = 100;
+              camera.position.set(0, 1.7, 20);
+              $('hudHp').textContent = hp;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+loop();
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
